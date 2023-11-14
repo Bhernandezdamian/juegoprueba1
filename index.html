@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego del Ave con Obstáculos</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-image: url('sky.jpg');
+      background-size: cover;
+      font-family: 'Arial', sans-serif;
+    }
+  
+    #admobBanner {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 0px;
+      background-color: #f2f2f2;
+      text-align: center;
+    }
+  
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      display: none;
+      color: white;
+    }
+  
+    canvas {
+      mix-blend-mode: multiply;
+      display: block;
+      margin: 0 auto;
+    }
+  
+    button,
+    input {
+      font-size: 16px;
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      outline: none;
+    }
+  
+    input[type="text"] {
+      width: 200px;
+    }
+  
+    button {
+      background-color: #3498db;
+      color: white;
+      transition: background-color 0.3s;
+    }
+  
+    button:hover {
+      background-color: #2980b9;
+    }
+  
+    #startContainer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(to bottom right, #ffcc00, #ff6600);
+      padding: 55px;
+      border-radius: 10px;
+    }
+  
+    #highScoresContainer {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(to bottom right, #3366ff, #9933ff);
+      padding: 40px;
+      border-radius: 10px;
+      color: white;
+    }
+  
+    #startContainer input {
+      margin-bottom: 10px;
+      padding: 10px;
+      font-size: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+  
+    #highScoresContainer button,
+    #gameOver button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 10px 15px;
+      font-size: 18px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+  
+    #highScoresContainer button:hover,
+    #gameOver button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+  
+</head>
+<body>
+  <div id="startContainer">
+
+    <input type="text" id="playerName" placeholder="Ingrese su nombre">
+    <button id="startButton" onclick="startGame()" style="font-size: 24px; padding: 15px 30px; margin-top: 30px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; display: block; margin: 0 auto;">Start</button>
+    
+    <button id="highScoresButton" onclick="showHighScores()" style="font-size: 20px; padding: 15px 30px; margin-top: 30px; background-color: white; color: black; border: none; border-radius: 5px; cursor: pointer; position: relative; z-index: 2; margin-right: 60px;">Mejores Puntuaciones</button>
+    
+
+    <button id="changeNameButton" onclick="changeName()" style="font-size: 20px; padding: 10px 20px; cursor: pointer; margin-top: 140px;">Cambiar Nombre</button>
+    <input type="text" id="newName" placeholder="Nuevo nombre" style="margin-top: 30px;">
+
+
+</div>
+
+
+
+  <div id="highScoresContainer" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: black; color: white; padding: 40px; width: 80%; max-width: 400px; border-radius: 10px; text-align: center; font-size: 24px; line-height: 1.5;">
+    <h2 style="font-size: 28px; margin-bottom: 20px;">Mejores Puntuaciones</h2>
+    <ol id="highScoresList" style="list-style-type: none; padding: 0; margin: 0;"></ol>
+    <button onclick="hideHighScores()" style="position: absolute; top: 10px; right: 10px; padding: 10px 15px; font-size: 18px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;">Cerrar</button>
+  </div>
+  
+
+  <canvas id="miCanvas" style="display: none;"></canvas>
+
+  <div id="admobBanner"></div>
+
+  <div id="gameOver">
+    <h1>¡Juego terminado!</h1>
+    <p id="finalScore"></p>
+    <button onclick="restartGame()" style="margin-top: -30px;">Reiniciar</button>
+    <button onclick="showStartContainer()" style="margin-top: 140px;">Inicio</button>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script>
+    // Tu configuración de Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyCYIY2Gny52IEfdawqGBMNJNJ98okmP7FA",
+        authDomain: "juego-1-bd9fa.firebaseapp.com",
+        databaseURL: "https://juego-1-bd9fa-default-rtdb.firebaseio.com",
+        projectId: "juego-1-bd9fa",
+        storageBucket: "juego-1-bd9fa.appspot.com",
+        messagingSenderId: "663850040724",
+        appId: "1:663850040724:web:8fbb102f4290f125bbe381"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    var startButton = document.querySelector("button");
+    var canvas = document.getElementById("miCanvas");
+    var ctx = canvas.getContext("2d");
+    var birdImage = new Image();
+    birdImage.src = 'bird.png';
+    var bird = { x: canvas.width / 4, y: canvas.height / 2, width: 40, height: 40, velocity: 0, gravity: 0.5 };
+    var obstacles = [];
+    var obstacleWidth = 40;
+    var obstacleGap = 200;
+    var obstacleSpeed = 2;
+    var isGameOver = false;
+    var score = 0;
+    var highestScore = 0; // Agrega esta variable
+    var playerName; // Agrega esta variable
+
+    // Recupera el nombre del usuario desde el almacenamiento local
+    playerName = localStorage.getItem('playerName');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - document.getElementById("admobBanner").clientHeight;
+
+    function drawBird() {
+      ctx.fillStyle = "lightblue";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(birdImage, bird.x, bird.y, bird.width, bird.height);
+    }
+
+    function drawObstacles() {
+      for (var i = 0; i < obstacles.length; i++) {
+        obstacles[i].hue = (obstacles[i].hue || Math.random() * 360) + 0.5;
+        if (obstacles[i].hue > 360) {
+          obstacles[i].hue = 0;
+        }
+
+        var obstacleColor = 'hsl(' + obstacles[i].hue + ', 100%, 50%)';
+        ctx.fillStyle = obstacleColor;
+
+        ctx.fillRect(obstacles[i].x, 0, obstacleWidth, obstacles[i].topHeight);
+        ctx.fillRect(obstacles[i].x, obstacles[i].bottomStart, obstacleWidth, canvas.height - obstacles[i].bottomStart);
+      }
+    }
+
+    function checkCollision() {
+      for (var i = 0; i < obstacles.length; i++) {
+        if (
+          bird.x + bird.width > obstacles[i].x && bird.x < obstacles[i].x + obstacleWidth &&
+          (bird.y < obstacles[i].topHeight || bird.y + bird.height > obstacles[i].bottomStart)
+        ) {
+          isGameOver = true;
+
+          // Actualiza la puntuación más alta si la puntuación actual es mayor
+          if (score > highestScore) {
+            highestScore = score;
+            updateHighestScore();
+          }
+        }
+      }
+
+      if (bird.y + bird.height > canvas.height) {
+        isGameOver = true;
+
+        // Actualiza la puntuación más alta si la puntuación actual es mayor
+        if (score > highestScore) {
+          highestScore = score;
+          updateHighestScore();
+        }
+      }
+    }
+
+    canvas.addEventListener("touchstart", function () {
+      if (!isGameOver) {
+        bird.velocity = -10;
+      }
+    });
+
+    function update() {
+      if (!isGameOver) {
+        bird.velocity += bird.gravity;
+        bird.y += bird.velocity;
+
+        for (var i = 0; i < obstacles.length; i++) {
+          obstacles[i].x -= obstacleSpeed;
+
+          if (obstacles[i].x + obstacleWidth < 0) {
+            obstacles.shift();
+            score++;
+
+            // Actualiza la puntuación en la base de datos
+            firebase.database().ref('players/' + playerName).update({
+              score: score
+            });
+
+            // Actualiza la puntuación más alta si la puntuación actual es mayor
+            if (score > highestScore) {
+              highestScore = score;
+              updateHighestScore();
+            }
+          }
+        }
+
+        if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 200) {
+          var topHeight = Math.random() * (canvas.height - obstacleGap - 50) + 50;
+          var bottomStart = topHeight + obstacleGap;
+          obstacles.push({ x: canvas.width, topHeight: topHeight, bottomStart: bottomStart });
+        }
+
+        checkCollision();
+
+        obstacleSpeed += 0.001;
+      }
+    }
+
+    function updateHighestScore() {
+      // Actualiza la puntuación más alta en la base de datos
+      firebase.database().ref('players/' + playerName).update({
+        highestScore: highestScore
+      });
+    }
+
+    function drawScore() {
+      ctx.fillStyle = "black";
+      ctx.font = "20px Arial";
+      ctx.fillText("Puntuación: " + score, 10, 30);
+      ctx.fillText("Mi Record: " + highestScore, canvas.width - 140, 30); // Muestra la puntuación más alta al lado derecho
+    }
+
+    function drawGameOver() {
+      if (isGameOver) {
+        document.getElementById("finalScore").innerHTML = "Puntuación final: " + score;
+        document.getElementById("gameOver").style.display = "block";
+      }
+    }
+
+    function restartGame() {
+      isGameOver = false;
+      score = 0;
+      bird.y = canvas.height / 4;
+      obstacles = [];
+      document.getElementById("gameOver").style.display = "none";
+      obstacleSpeed = 2;
+      gameLoop();
+    }
+
+    function startGame() {
+      if (!playerName) {
+        playerName = document.getElementById('playerName').value;
+        if (playerName) {
+          // Almacena el nombre del usuario en el almacenamiento local
+          localStorage.setItem('playerName', playerName);
+        } else {
+          alert('Por favor, ingrese su nombre antes de empezar el juego.');
+          return;
+        }
+      }
+
+      // Comprueba si el usuario ya existe en la base de datos
+      firebase.database().ref('players/' + playerName).once('value').then(function(snapshot) {
+        if (snapshot.exists()) {
+          // Recupera la información del usuario desde la base de datos
+          var userData = snapshot.val();
+          // Verifica si la página se ha recargado
+          if (performance.navigation.type === 1) {
+            // Si la página se ha recargado, reinicia la puntuación a cero
+            score = 0;
+          } else {
+            // Si no se ha recargado la página, recupera la puntuación desde la base de datos
+            score = userData.score || 0;
+          }
+          highestScore = userData.highestScore || 0;
+
+          // Actualiza la interfaz
+          document.getElementById('startContainer').style.display = 'none';
+          canvas.style.display = "block";
+          gameLoop();
+        } else {
+          // Si el usuario no existe, agrégalo a la base de datos
+          firebase.database().ref('players/' + playerName).set({
+            name: playerName,
+            score: 0,
+            highestScore: 0
+          });
+
+          // Actualiza la interfaz
+          document.getElementById('startContainer').style.display = 'none';
+          canvas.style.display = "block";
+          gameLoop();
+        }
+      });
+    }
+
+    function gameLoop() {
+      drawBird();
+      drawObstacles();
+      drawScore();
+      update();
+      drawGameOver();
+
+      if (!isGameOver) {
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+
+
+    function showHighScores() {
+        var highScoresContainer = document.getElementById("highScoresContainer");
+        var highScoresList = document.getElementById("highScoresList");
+      
+        // Muestra el contenedor de las mejores puntuaciones
+        highScoresContainer.style.display = "block";
+      
+        // Limpia la lista de puntuaciones anteriores
+        highScoresList.innerHTML = "";
+      
+        // Recupera las 10 mejores puntuaciones desde Firebase, ordenadas de mayor a menor
+        firebase.database().ref('players').orderByChild('highestScore').limitToLast(10).once('value').then(function(snapshot) {
+          // Convierte los datos a un array para facilitar la ordenación
+          var scoresArray = [];
+          snapshot.forEach(function(childSnapshot) {
+            scoresArray.push({ name: childSnapshot.val().name, highestScore: childSnapshot.val().highestScore });
+          });
+      
+          // Ordena el array por la puntuación más alta de manera descendente
+          scoresArray.sort(function(a, b) {
+            return b.highestScore - a.highestScore;
+          });
+      
+          // Crea la lista ordenada y agrégala al contenedor, mostrando el lugar de cada usuario
+          scoresArray.forEach(function(score, index) {
+            var listItem = document.createElement("li");
+            listItem.textContent = `${index + 1}. ${score.name}: ${score.highestScore}`;
+            highScoresList.appendChild(listItem);
+          });
+        });
+      }
+      
+      
+
+      
+      function hideHighScores() {
+        var highScoresContainer = document.getElementById("highScoresContainer");
+        highScoresContainer.style.display = "none";
+      }
+      
+
+
+      function changeName() {
+        var newName = document.getElementById('newName').value;
+    
+        // Verifica si se ingresó un nuevo nombre
+        if (newName.trim() !== "") {
+            // Actualiza el nombre en la base de datos
+            firebase.database().ref('players/' + playerName).update({
+                name: newName
+            });
+    
+            // Actualiza el nombre localmente
+            playerName = newName;
+    
+            // Actualiza el campo de entrada con el nuevo nombre
+            document.getElementById('playerName').value = playerName;
+    
+            // Muestra un mensaje de éxito o realiza otras acciones necesarias
+            alert('¡Nombre actualizado exitosamente!');
+        } else {
+            // Muestra un mensaje de error si no se ingresó un nuevo nombre
+            alert('Por favor, ingrese un nuevo nombre antes de guardar.');
+        }
+    }
+    
+    function showStartContainer() {
+      // Muestra el contenedor de inicio y oculta otros elementos
+      document.getElementById("startContainer").style.display = "block";
+      document.getElementById("highScoresContainer").style.display = "none";
+      document.getElementById("gameOver").style.display = "none";
+      canvas.style.display = "none";
+    }
+
+    
+  </script>
+</body>
+</html>
